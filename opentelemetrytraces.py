@@ -20,27 +20,31 @@ trace.get_tracer_provider().add_span_processor(span_processor)
 async def check_for_new_users(user_count):
     while True:
 
-        new_user_added, user_count = check_users(user_count)
+        new_user_added, new_user_name, user_count = check_users(user_count)
 
         if new_user_added:
-            with tracer.start_as_current_span("user_added_event"):
-                print("User added event sent!")
+            with tracer.start_as_current_span("user_added_event") as span:
+                span.set_attribute("new_user_name", new_user_name)
+                print(f"User added event sent for {new_user_name}!")
         else:
             print("No new users")
 
-        await asyncio.sleep(60) 
+        await asyncio.sleep(60)
 
 def check_users(user_count):
-
     users_output = subprocess.check_output(['getent', 'passwd']).decode('utf-8')
-
     current_user_count = len(users_output.splitlines())
 
-    new_user_added = current_user_count > user_count
+    if current_user_count > user_count:
+        # Extract the username of the new user
+        new_user_name = users_output.splitlines()[-1].split(':')[0]
+        new_user_added = True
+    else:
+        new_user_name = None
+        new_user_added = False
 
-    return new_user_added, current_user_count
+    return new_user_added, new_user_name, current_user_count
 
 if __name__ == "__main__":
     user_count = 34
-
     asyncio.run(check_for_new_users(user_count))
