@@ -2,13 +2,16 @@ pipeline {
     agent any
     environment {
         USER_CAUSE = "${currentBuild.getBuildCauses('hudson.model.Cause$UserIdCause')}"
-        BUILD_RESULT = "${currentBuild.result}"
+        BUILD_RESULT = "${currentBuild.currentResult}"
     }
     stages {
-        stage('Extract User Info') {
+        stage('Stage1') {
             steps {
                 script {
-                    // Parse the USER_CAUSE string to extract userName
+                    sh "echo ${JOB_NAME}"
+                    env.GIT_BRANCH = env.BRANCH_NAME
+                    echo env.BRANCH_NAME
+                    // Extracting Pipeline Trigger User
                     def match = USER_CAUSE =~ /userName:(\w+)/
 
                     if (match) {
@@ -16,19 +19,41 @@ pipeline {
                     }
                     
                     env.USER_NAME = "${USER_NAME}"
-                    echo "User Name: ${USER_NAME}"
+                    echo env.USER_NAME
+                }
+                script {
+                    // Extracting Stage 1 Duration
+                    def duration1String = currentBuild.durationString
+                    def match1 = duration1String =~ /(\d+\.\d+)/
+                    def extractedValue1 = match1 ? match1[0][0] : null
+                    echo "Stage 1 Duration: ${extractedValue1} milliseconds"
+                    env.Stage1Duration = extractedValue1
+                }
+                script {
+                    def check = BUILD_RESULT
+                    env.Stage1Status = check
+                    sh "echo ${Stage1Status}"
                 }
             }
         }
-        stage ('user_meta') {
+        stage ('Stage2') {
             agent any
             steps {
                 script {
-                    def durationString = currentBuild.durationString
-                    def match = durationString =~ /(\d+\.\d+)/
-                    def extractedValue = match ? match[0][0] : null
-                    echo "Stage 2 Duration: ${extractedValue} milliseconds"
-                    env.BUILD_DURATION = extractedValue
+                    sh "echo ${JOB_NAME}"
+                }
+                script {
+                    // Extracting Stage2 Duration
+                    def duration2String = currentBuild.durationString
+                    def match2 = duration2String =~ /(\d+\.\d+)/
+                    def extractedValue2 = match2 ? match2[0][0] : null
+                    echo "Stage 2 Duration: ${extractedValue2} milliseconds"
+                    env.Stage2Duration = extractedValue2
+                }
+                script {
+                    def check2 = BUILD_RESULT
+                    env.Stage2Status = check2
+                    sh "echo ${Stage2Status}"
                 }
             }   
         }
@@ -38,7 +63,6 @@ pipeline {
             script {
                 withCredentials([string(credentialsId: 'e2fe5270-046a-4aee-b1e6-657f705a7489', variable: 'APPLICATIONINSIGHTS_CONNECTION_STRING')]) {
                 sh 'python3 user_meta.py'
-                sh "echo $USER_NAME"
                 }
             }
         }
